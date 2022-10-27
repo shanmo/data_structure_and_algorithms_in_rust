@@ -1,1 +1,3 @@
-# data_structure_and_algorithms_in_rust
+# about 
+
+- notes for this book [Hands-On Data Structures and Algorithms with Rust](https://github.com/PacktPublishing/Hands-On-Data-Structures-and-Algorithms-with-Rust)
