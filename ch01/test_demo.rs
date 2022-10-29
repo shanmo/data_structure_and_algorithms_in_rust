@@ -26,3 +26,4 @@ mod tests {
         b.iter(|| my_add(42, 42))
     }
 }
+
