@@ -39,6 +39,7 @@ impl TransactionLog {
 
     pub fn append(&mut self, value: String) {
         let new = Node::new(value); 
+        // https://doc.rust-lang.org/std/option/enum.Option.html#method.take
         match self.tail.take() {
             Some(old) => old.borrow_mut().next = Some(new.clone()),
             None => self.head = Some(new.clone())
