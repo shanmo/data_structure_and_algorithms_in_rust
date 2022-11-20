@@ -50,8 +50,8 @@ impl DeviceRegistry {
     pub fn add_rec(&mut self, node: Tree, device: IoTDevice) -> Tree {
         match node {
             Some(mut n) => {
-                // small numeric_id means more priority
-                if n.dev.numeric_id <= device.numeric_id {
+                // small numerical_id means more priority
+                if n.dev.numerical_id <= device.numerical_id {
                     n.left = self.add_rec(n.left, device);
                     Some(n)
                 } else {
@@ -63,19 +63,19 @@ impl DeviceRegistry {
         }
     }
 
-    pub fn find(&self, numeric_id: u64) -> Option<IoTDevice> {
-        self.find_recursive(&self.root, numeric_id)
+    pub fn find(&self, numerical_id: u64) -> Option<IoTDevice> {
+        self.find_recursive(&self.root, numerical_id)
     }
 
-    pub fn find_recursive(&self, node: &Tree, numeric_id: u64) -> Option<IoTDevice> {
+    pub fn find_recursive(&self, node: &Tree, numerical_id: u64) -> Option<IoTDevice> {
         match node {
             Some(n) => {
-                if n.dev.numeric_id == numeric_id {
+                if n.dev.numerical_id == numerical_id {
                     Some(n.dev.clone())
-                } else if n.dev.numeric_id < numeric_id {
-                    self.find_recursive(&n.left, numeric_id)
+                } else if n.dev.numerical_id < numerical_id {
+                    self.find_recursive(&n.left, numerical_id)
                 } else {
-                    self.find_recursive(&n.right, numeric_id)
+                    self.find_recursive(&n.right, numerical_id)
                 }
             }
             _ => None,
