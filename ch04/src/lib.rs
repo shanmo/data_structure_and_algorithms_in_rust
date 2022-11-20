@@ -79,7 +79,7 @@ mod tests {
 
         let mut i: u64 = 4; 
         for a in arr.back_iter().rev() {
-            assert_eq!(a, i);
+            assert_eq!(a, i); 
             if i > 0 {
                 i -= 1; 
             } 
