@@ -3,7 +3,7 @@
 mod bst;
 mod heap;
 mod rbtree;
-mod trie; 
+mod trie;
 
 #[derive(Clone, Debug)]
 pub struct IoTDevice {
@@ -231,67 +231,65 @@ mod tests {
 
     #[test]
     fn trie_add() {
-        let mut trie = trie::BestDeviceRegistry::new_empty(); 
-        let len = 10; 
+        let mut trie = trie::BestDeviceRegistry::new_empty();
+        let len = 10;
 
-        let mut rng = thread_rng(); 
+        let mut rng = thread_rng();
 
         for i in 0..len {
-            trie.add(
-                new_device_with_id_path(
-                    i, 
-                    format!("factory{}/machineA/{}", rng.gen_range(0, len), i), 
-                )
-            );
+            trie.add(new_device_with_id_path(
+                i,
+                format!("factory{}/machineA/{}", rng.gen_range(0, len), i),
+            ));
         }
 
-        assert_eq!(trie.length, len); 
+        assert_eq!(trie.length, len);
     }
 
     #[test]
     fn trie_find() {
-        let mut trie = trie::BestDeviceRegistry::new_empty(); 
-        let len = 10; 
+        let mut trie = trie::BestDeviceRegistry::new_empty();
+        let len = 10;
 
-        let mut paths = vec![]; 
-        let mut devices = vec![]; 
+        let mut paths = vec![];
+        let mut devices = vec![];
         for i in 0..len {
             let s = format!("factoryA/machineA/{}", i);
-            let d = new_device_with_id_path(i, s.clone()); 
-            trie.add(d.clone()); 
-            paths.push(s); 
-            devices.push(d);  
+            let d = new_device_with_id_path(i, s.clone());
+            trie.add(d.clone());
+            paths.push(s);
+            devices.push(d);
         }
 
-        assert_eq!(trie.length, len); 
-        assert_eq!(trie.find("100"), None); 
+        assert_eq!(trie.length, len);
+        assert_eq!(trie.find("100"), None);
         assert_eq!(trie.find("factoryA/machineA/0"), Some(devices[0].clone()));
     }
 
     #[test]
     fn trie_walk_in_order() {
-        let mut trie = trie::BestDeviceRegistry::new_empty(); 
-        let len = 10; 
+        let mut trie = trie::BestDeviceRegistry::new_empty();
+        let len = 10;
 
-        let mut paths = vec![]; 
-        let mut devices = vec![]; 
+        let mut paths = vec![];
+        let mut devices = vec![];
         for i in 0..len {
             let s = format!("factoryA/machineA/{}", i);
-            let d = new_device_with_id_path(i, s.clone()); 
-            trie.add(d.clone()); 
-            paths.push(s); 
-            devices.push(d);  
+            let d = new_device_with_id_path(i, s.clone());
+            trie.add(d.clone());
+            paths.push(s);
+            devices.push(d);
         }
 
-        assert_eq!(trie.length, len); 
+        assert_eq!(trie.length, len);
 
-        let v: RefCell<Vec<IoTDevice>> = RefCell::new(vec![]); 
-        trie.walk(|n| v.borrow_mut().push(n.clone())); 
+        let v: RefCell<Vec<IoTDevice>> = RefCell::new(vec![]);
+        trie.walk(|n| v.borrow_mut().push(n.clone()));
 
-        let mut items = devices; 
-        items.sort_by(|a, b| b.numerical_id.cmp(&a.numerical_id)); 
-        let mut actual = v.into_inner(); 
-        actual.sort_by(|a, b| b.numerical_id.cmp(&a.numerical_id)); 
-        assert_eq!(actual, items); 
+        let mut items = devices;
+        items.sort_by(|a, b| b.numerical_id.cmp(&a.numerical_id));
+        let mut actual = v.into_inner();
+        actual.sort_by(|a, b| b.numerical_id.cmp(&a.numerical_id));
+        assert_eq!(actual, items);
     }
 }
