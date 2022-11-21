@@ -1,6 +1,7 @@
 #![feature(test)]
 
 mod bst;
+mod heap;
 mod rbtree;
 
 #[derive(Clone, Debug)]
@@ -26,6 +27,27 @@ impl PartialEq for IoTDevice {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct MessageNotification {
+    pub no_messages: u64,
+    pub device: IoTDevice,
+}
+
+impl MessageNotification {
+    pub fn new(device: IoTDevice, no_messages: u64) -> MessageNotification {
+        MessageNotification {
+            no_messages: no_messages,
+            device: device,
+        }
+    }
+}
+
+impl PartialEq for MessageNotification {
+    fn eq(&self, other: &MessageNotification) -> bool {
+        self.device.eq(&other.device) && self.no_messages == other.no_messages
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate test;
@@ -45,6 +67,11 @@ mod tests {
 
     fn new_device_with_id(id: u64) -> IoTDevice {
         new_device_with_id_path(id, "")
+    }
+
+    fn new_notification_with_id(id: u64, no_messages: u64) -> MessageNotification {
+        let dev = new_device_with_id(id);
+        MessageNotification::new(dev, no_messages)
     }
 
     // BST tests
@@ -165,5 +192,38 @@ mod tests {
             let r = rng.gen_range::<u64>(0, LIST_ITEMS);
             tree.find(r).expect("not found");
         });
+    }
+
+    #[test]
+    fn binary_heap_add() {
+        let mut heap = heap::MessageChecker::new_empty();
+
+        heap.add(new_notification_with_id(1, 100));
+        heap.add(new_notification_with_id(2, 200));
+        heap.add(new_notification_with_id(3, 500));
+        heap.add(new_notification_with_id(4, 40));
+        assert_eq!(heap.length, 4);
+    }
+
+    #[test]
+    fn binary_heap_pop() {
+        let mut heap = heap::MessageChecker::new_empty();
+
+        let a = new_notification_with_id(1, 40);
+        let b = new_notification_with_id(2, 300);
+        let c = new_notification_with_id(3, 50);
+        let d = new_notification_with_id(4, 500);
+
+        heap.add(a.clone());
+        heap.add(b.clone());
+        heap.add(c.clone());
+        heap.add(d.clone());
+
+        assert_eq!(heap.length, 4);
+
+        assert_eq!(heap.pop(), Some(d));
+        assert_eq!(heap.pop(), Some(b));
+        assert_eq!(heap.pop(), Some(c));
+        assert_eq!(heap.pop(), Some(a));
     }
 }
