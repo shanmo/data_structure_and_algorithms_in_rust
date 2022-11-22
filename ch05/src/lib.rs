@@ -1,6 +1,7 @@
 #![feature(test)]
 
 mod bst;
+mod btree;
 mod heap;
 mod rbtree;
 mod trie;
@@ -286,10 +287,151 @@ mod tests {
         let v: RefCell<Vec<IoTDevice>> = RefCell::new(vec![]);
         trie.walk(|n| v.borrow_mut().push(n.clone()));
 
-        let mut items = devices;
-        items.sort_by(|a, b| b.numerical_id.cmp(&a.numerical_id));
+        devices.sort_by(|a, b| b.numerical_id.cmp(&a.numerical_id));
         let mut actual = v.into_inner();
         actual.sort_by(|a, b| b.numerical_id.cmp(&a.numerical_id));
-        assert_eq!(actual, items);
+        assert_eq!(actual, devices);
+    }
+
+    #[bench]
+    fn bench_unsorted_insert_btree_find_7(b: &mut Bencher) {
+        let mut tree = btree::DeviceDatabase::new_empty(7);
+        let mut items: Vec<IoTDevice> = (1..=LIST_ITEMS).map(new_device_with_id).collect();
+
+        let mut rng = thread_rng();
+        rng.shuffle(&mut items);
+
+        for item in items {
+            tree.add(item);
+        }
+        assert_eq!(tree.length, LIST_ITEMS);
+        assert!(tree.is_a_valid_btree());
+        b.iter(|| {
+            let r = rng.gen_range::<u64>(1, LIST_ITEMS + 1);
+            tree.find(r).expect("NOT FOUND")
+        });
+    }
+
+    #[bench]
+    fn bench_unsorted_insert_btree_find_14(b: &mut Bencher) {
+        let mut tree = btree::DeviceDatabase::new_empty(14);
+        let mut items: Vec<IoTDevice> = (1..=LIST_ITEMS).map(new_device_with_id).collect();
+
+        let mut rng = thread_rng();
+        rng.shuffle(&mut items);
+
+        for item in items {
+            tree.add(item);
+        }
+        assert_eq!(tree.length, LIST_ITEMS);
+        assert!(tree.is_a_valid_btree());
+        b.iter(|| {
+            let r = rng.gen_range::<u64>(1, LIST_ITEMS + 1);
+            tree.find(r).expect("NOT FOUND")
+        });
+    }
+
+    #[bench]
+    fn bench_sorted_insert_btree_find_4(b: &mut Bencher) {
+        let mut tree = btree::DeviceDatabase::new_empty(4);
+
+        let items: Vec<IoTDevice> = (1..=LIST_ITEMS).map(new_device_with_id).collect();
+
+        for item in items {
+            tree.add(item);
+        }
+
+        assert_eq!(tree.length, LIST_ITEMS);
+        assert!(tree.is_a_valid_btree());
+
+        let mut rng = thread_rng();
+
+        b.iter(|| {
+            let r = rng.gen_range::<u64>(1, LIST_ITEMS + 1);
+            tree.find(r).expect("NOT FOUND")
+        });
+    }
+
+    #[bench]
+    fn bench_sorted_insert_btreemap_find(b: &mut Bencher) {
+        let mut tree = std::collections::BTreeMap::new();
+
+        let items: Vec<IoTDevice> = (1..=LIST_ITEMS).map(new_device_with_id).collect();
+
+        for item in items {
+            tree.insert(item.numerical_id, item);
+        }
+
+        assert_eq!(tree.len(), LIST_ITEMS as usize);
+
+        let mut rng = thread_rng();
+
+        b.iter(|| {
+            let r = rng.gen_range::<u64>(1, LIST_ITEMS + 1);
+            tree.get(&r).expect("NOT FOUND")
+        });
+    }
+
+    #[test]
+    fn btree_add() {
+        let mut tree = btree::DeviceDatabase::new_empty(3);
+        tree.add(new_device_with_id(0));
+        tree.add(new_device_with_id(2));
+        tree.add(new_device_with_id(4));
+        tree.add(new_device_with_id(3));
+        tree.add(new_device_with_id(5));
+        tree.add(new_device_with_id(6));
+        tree.add(new_device_with_id(7));
+
+        assert_eq!(tree.length, 7);
+        assert!(tree.is_a_valid_btree());
+    }
+
+    #[test]
+    fn btree_walk_in_order() {
+        let len = 7;
+
+        let mut tree = btree::DeviceDatabase::new_empty(3);
+        let mut items: Vec<IoTDevice> = (0..len).map(new_device_with_id).collect();
+
+        let mut rng = thread_rng();
+        rng.shuffle(&mut items);
+
+        for item in items.iter() {
+            tree.add(item.clone());
+        }
+        assert!(tree.is_a_valid_btree());
+        assert_eq!(tree.length, len);
+        let v: RefCell<Vec<IoTDevice>> = RefCell::new(vec![]);
+        tree.walk(|n| v.borrow_mut().push(n.clone()));
+        let mut items = items;
+        // sort in descending order:
+        items.sort_by(|a, b| a.numerical_id.cmp(&b.numerical_id));
+        assert_eq!(v.into_inner(), items)
+    }
+
+    #[test]
+    fn btree_find() {
+        let mut tree = btree::DeviceDatabase::new_empty(3);
+
+        tree.add(new_device_with_id(3));
+        tree.add(new_device_with_id(2));
+        tree.add(new_device_with_id(1));
+        tree.add(new_device_with_id(6));
+        tree.add(new_device_with_id(4));
+        tree.add(new_device_with_id(5));
+        tree.add(new_device_with_id(7));
+
+        assert!(tree.is_a_valid_btree());
+        assert_eq!(tree.length, 7);
+
+        assert_eq!(tree.find(100), None);
+        assert_eq!(tree.find(4), Some(new_device_with_id(4)));
+        assert_eq!(tree.find(3), Some(new_device_with_id(3)));
+        assert_eq!(tree.find(2), Some(new_device_with_id(2)));
+        assert_eq!(tree.find(1), Some(new_device_with_id(1)));
+        assert_eq!(tree.find(5), Some(new_device_with_id(5)));
+        assert_eq!(tree.find(6), Some(new_device_with_id(6)));
+        assert_eq!(tree.find(7), Some(new_device_with_id(7)));
     }
 }
