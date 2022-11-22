@@ -50,18 +50,27 @@ impl Node {
         self.children.len() + 1
     }
 
-    pub fn find_closest_index(&self, key: KeyType) -> Direction {
-        let mut index = Direction::Left;
-        for (i, pair) in self.devices.iter().enumerate() {
-            if let Some(dev) = pair {
-                if dev.numerical_id <= key {
-                    index = Direction::Right;
-                } else {
-                    break;
-                }
-            }
+    pub fn split(&mut self) -> (IoTDevice, Tree) {
+        let mut sibling = Node::new(self.node_type.clone());
+
+        let no_of_devices = self.devices.len();
+        let split_at = no_of_devices / 2usize;
+
+        let dev = self.devices.remove(split_at);
+        let node = self.children.remove(split_at);
+
+        for _ in split_at..self.devices.len() {
+            let device = self.devices.pop().unwrap();
+            let child = self.children.pop().unwrap();
+            sibling.add_key(device.as_ref().unwrap().numerical_id, (device, child));
         }
-        index
+
+        sibling.add_left_child(node);
+        (dev.unwrap(), sibling)
+    }
+
+    pub fn add_left_child(&mut self, tree: Option<Tree>) {
+        self.left_child = tree;
     }
 
     pub fn add_key(&mut self, key: KeyType, value: Data) -> bool {
@@ -81,27 +90,32 @@ impl Node {
         true
     }
 
-    pub fn add_left_child(&mut self, tree: Option<Tree>) {
-        self.left_child = tree;
+    pub fn remove_key(&mut self, id: KeyType) -> Option<(KeyType, Data)> {
+        match self.find_closest_index(id) {
+            Direction::Left => {
+                let tree = mem::replace(&mut self.left_child, None);
+                Some((id, (None, tree)))
+            }
+            Direction::Right(index) => {
+                let dev = self.devices.remove(index);
+                let tree = self.children.remove(index);
+                Some((dev.as_ref().unwrap().numerical_id, (dev, tree)))
+            }
+        }
     }
 
-    pub fn split(&mut self) -> (IoTDevice, Tree) {
-        let mut sibling = Node::new(self.node_type.clone());
-
-        let no_of_devices = self.devices.len();
-        let split_at = no_of_devices / 2_usize;
-
-        let dev = self.devices.remove(split_at);
-        let node = self.children.remove(split_at);
-
-        for _ in split_at..self.devices.len() {
-            let device = self.devices.pop().unwrap();
-            let child = self.children.pop().unwrap();
-            sibling.add_key(device.as_ref().unwrap().numerical_id, (device, child));
+    pub fn find_closest_index(&self, key: KeyType) -> Direction {
+        let mut index = Direction::Left;
+        for (i, pair) in self.devices.iter().enumerate() {
+            if let Some(dev) = pair {
+                if dev.numerical_id <= key {
+                    index = Direction::Right(i);
+                } else {
+                    break;
+                }
+            }
         }
-
-        sibling.add_left_child(node);
-        (dev.unwrap(), sibling)
+        index
     }
 
     pub fn get_device(&self, key: KeyType) -> Option<&IoTDevice> {
@@ -123,20 +137,6 @@ impl Node {
             Direction::Right(i) => self.children[i].as_ref(),
         }
     }
-
-    pub fn remove_key(&mut self, id: KeyType) -> Option<(KeyType, Data)> {
-        match self.find_closest_index(id) {
-            Direction::Left => {
-                let tree = mem::replace(&mut self.left_child, None);
-                Some((id, (None, tree)))
-            }
-            Direction::Right(index) => {
-                let dev = self.devices.remove(index);
-                let tree = self.children.remove(index);
-                Some((dev.as_ref().unwrap().numerical_id, (dev, tree)))
-            }
-        }
-    }
 }
 
 pub struct DeviceDatabase {
@@ -154,46 +154,11 @@ impl DeviceDatabase {
         }
     }
 
-    pub fn is_a_valid_btree(&self) -> bool {
-        if let Some(tree) = self.root.as_ref() {
-            let total = self.validate(tree, 0);
-            total.0 && total.1 = total.2
-        } else {
-            false
-        }
-    }
-
-    pub fn validate(&self, node: &Tree, level: usize) -> (bool, usize, usize) {
-        match node.node_type {
-            NodeType::Leaf => (node.len() <= self.order, level, level),
-            NodeType::Regular => {
-                // root node has two children, the rest at least order/2
-                let min_children = if level > 0 { self.order / 2_usize } else { 2 };
-                let key_rules = node.len() <= self.order && node.len() >= min_children;
-
-                // find the min and max leaf height
-                // for B tree, all leaf nodes should be same level
-                let mut total = (key_rules, usize::max_value(), level);
-                for n in node.children.iter().chain(vec![&node.left_child]) {
-                    if let Some(ref tree) = n {
-                        let stats = self.validate(tree, level + 1);
-                        total = (
-                            total.0 && stats.0,
-                            cmp::min(stats.1, total.1),
-                            cmp::max(stats.2, total.2),
-                        );
-                    }
-                }
-                total
-            }
-        }
-    }
-
     pub fn add(&mut self, device: IoTDevice) {
         let node = if self.root.is_some() {
             mem::replace(&mut self.root, None).unwrap()
         } else {
-            node::new_leaf();
+            Node::new_leaf()
         };
 
         let (root, _) = self.add_r(node, device, true);
@@ -201,7 +166,7 @@ impl DeviceDatabase {
         self.root = Some(root);
     }
 
-    pub fn add_r(&mut self, node: Tree, device: IoTDevice, is_root: bool) -> (Tree, Option<Data>) {
+    fn add_r(&mut self, node: Tree, device: IoTDevice, is_root: bool) -> (Tree, Option<Data>) {
         let mut node = node;
         let id = device.numerical_id;
 
@@ -229,9 +194,12 @@ impl DeviceDatabase {
         if node.len() > self.order {
             let (new_parent, sibling) = node.split();
 
+            // Check if the root node is "full" and add a new level
             if is_root {
                 let mut parent = Node::new_regular();
+                // Add the former root to the left
                 parent.add_left_child(Some(node));
+                // Add the new right part as well
                 parent.add_key(new_parent.numerical_id, (Some(new_parent), Some(sibling)));
                 (parent, None)
             } else {
@@ -239,6 +207,41 @@ impl DeviceDatabase {
             }
         } else {
             (node, None)
+        }
+    }
+
+    pub fn is_a_valid_btree(&self) -> bool {
+        if let Some(tree) = self.root.as_ref() {
+            let total = self.validate(tree, 0);
+            total.0 && total.1 == total.2
+        } else {
+            false // there is no tree
+        }
+    }
+
+    fn validate(&self, node: &Tree, level: usize) -> (bool, usize, usize) {
+        //node.print(format!("Level: {}", level));
+        match node.node_type {
+            NodeType::Leaf => (node.len() <= self.order, level, level),
+            NodeType::Regular => {
+                // Root node only requires two children, every other node at least half the
+                // order
+                let min_children = if level > 0 { self.order / 2usize } else { 2 };
+                let key_rules = node.len() <= self.order && node.len() >= min_children;
+
+                let mut total = (key_rules, usize::max_value(), level);
+                for n in node.children.iter().chain(vec![&node.left_child]) {
+                    if let Some(ref tree) = n {
+                        let stats = self.validate(tree, level + 1);
+                        total = (
+                            total.0 && stats.0,
+                            cmp::min(stats.1, total.1),
+                            cmp::max(stats.2, total.2),
+                        );
+                    }
+                }
+                total
+            }
         }
     }
 
