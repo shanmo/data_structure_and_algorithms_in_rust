@@ -252,17 +252,34 @@ impl DeviceDatabase {
         }
     }
 
+    // This function is quite hard to understand
+    // fn find_r(&self, node: &Tree, id: KeyType) -> Option<IoTDevice> {
+    //     match node.get_device(id) {
+    //         Some(device) => Some(device.clone()),
+    //         None if node.node_type != NodeType::Leaf => {
+    //             if let Some(tree) = node.get_child(id) {
+    //                 self.find_r(tree, id)
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //         _ => None,
+    //     }
+    // }
+    // this is equivalent
     fn find_r(&self, node: &Tree, id: KeyType) -> Option<IoTDevice> {
         match node.get_device(id) {
             Some(device) => Some(device.clone()),
-            None if node.node_type != NodeType::Leaf => {
-                if let Some(tree) = node.get_child(id) {
-                    self.find_r(tree, id)
-                } else {
-                    None
+            None => match node.node_type {
+                NodeType::Regular => {
+                    if let Some(tree) = node.get_child(id) {
+                        self.find_r(tree, id)
+                    } else {
+                        None
+                    }
                 }
-            }
-            _ => None,
+                NodeType::Leaf => None,
+            },
         }
     }
 
